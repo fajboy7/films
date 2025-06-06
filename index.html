@@ -127,14 +127,7 @@
     </div>
 
     <script>
-        // Konfigurasi dan State Aplikasi
-        const config = {
-            apiKey: '80321gzu2kyp4zle8ktvi',
-            // API Lulustream menggunakan CORS, jadi kita perlu proxy.
-            proxyUrl: 'https://corsproxy.io/?',
-            baseUrl: 'https://lulustream.com/api'
-        };
-
+        // State Aplikasi
         const state = {
             currentPage: 1,
             totalPages: 1,
@@ -168,26 +161,29 @@
             displayMovies();
         }
 
-
-        // Fungsi untuk Fetch API
+        // Fungsi untuk Fetch API melalui proxy kita sendiri
         async function fetchFromApi(endpoint, params = {}) {
-            params.key = config.apiKey;
+            // Gabungkan endpoint target sebagai parameter untuk dikirim ke proxy
+            params.endpoint = endpoint;
+
             const query = new URLSearchParams(params).toString();
-            const url = `${config.proxyUrl}${encodeURIComponent(`${config.baseUrl}${endpoint}?${query}`)}`;
+            // Panggil proxy serverless kita sendiri yang ada di /api/proxy.js
+            const url = `/api/proxy?${query}`;
 
             try {
                 const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
                 const data = await response.json();
-                if (data.status !== 200) {
-                    throw new Error(data.msg || 'API returned an error');
+                
+                if (!response.ok || data.status !== 200) {
+                     // Gunakan pesan error dari API jika ada, jika tidak gunakan status HTTP
+                    throw new Error(data.msg || `HTTP error! status: ${response.status}`);
                 }
+                
+                // Kembalikan hanya bagian "result" dari respons API
                 return data.result;
             } catch (error) {
                 console.error('Fetch API Error:', error);
-                showError(`Tidak dapat terhubung ke server. ${error.message}`);
+                showError(error.message);
                 throw error;
             }
         }
