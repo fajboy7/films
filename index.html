@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuluFlix - Nonton Film Sepuasnya</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+        }
+        .movie-card:hover .play-icon {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+        .play-icon {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        #player-container {
+            position: relative;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+        }
+        #video-player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* bg-gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* bg-gray-600 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* bg-gray-500 */
+        }
+        #age-gate-modal {
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="text-gray-200">
+
+    <!-- Age Gate Modal -->
+    <div id="age-gate-modal" class="fixed inset-0 bg-gray-900 bg-opacity-95 flex justify-center items-center p-4">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md text-center border border-gray-700">
+            <i data-lucide="alert-triangle" class="mx-auto w-16 h-16 text-yellow-400 mb-4"></i>
+            <h2 class="text-3xl font-bold text-white mb-4">Peringatan Konten Dewasa</h2>
+            <p class="text-gray-300 mb-8">Website ini mungkin berisi konten yang tidak pantas untuk pemirsa di bawah umur. Dengan melanjutkan, Anda mengonfirmasi bahwa Anda berusia 18 tahun atau lebih.</p>
+            <div class="flex justify-center gap-4">
+                <button id="age-gate-leave" class="w-full px-8 py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg transition-colors">Keluar</button>
+                <button id="age-gate-enter" class="w-full px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Saya Berusia 18+</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container Utama -->
+    <div id="app" class="container mx-auto px-4 py-8 hidden">
+
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row justify-between items-center mb-8">
+            <h1 id="home-button" class="text-4xl font-extrabold text-white cursor-pointer mb-4 sm:mb-0">
+                <span class="text-red-500">Lulu</span>Flix
+            </h1>
+            <div class="relative w-full sm:w-64">
+                <input type="text" id="search-input" placeholder="Cari film..." class="w-full bg-gray-800 text-white placeholder-gray-400 border border-gray-700 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-red-500">
+                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+            </div>
+        </header>
+
+        <!-- Halaman Utama (Daftar Film) -->
+        <main id="main-view">
+            <h2 id="section-title" class="text-2xl font-bold mb-6 text-white border-l-4 border-red-500 pl-4">Film Terbaru</h2>
+            <div id="loading" class="text-center py-10">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
+                <p class="mt-4 text-lg">Memuat film...</p>
+            </div>
+            <div id="movie-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                <!-- Kartu film akan dimasukkan di sini oleh JavaScript -->
+            </div>
+            <div id="pagination" class="flex justify-center mt-8 space-x-2">
+                <!-- Tombol paginasi akan dimasukkan di sini -->
+            </div>
+             <div id="error-message" class="hidden text-center py-10 bg-gray-800 rounded-lg">
+                <i data-lucide="alert-triangle" class="mx-auto w-12 h-12 text-yellow-400"></i>
+                <p class="mt-4 text-lg text-white">Gagal memuat data. Silakan coba lagi nanti.</p>
+                <p class="text-sm text-gray-400 mt-2" id="error-details"></p>
+            </div>
+        </main>
+
+        <!-- Halaman Detail Film & Player -->
+        <section id="detail-view" class="hidden">
+            <button id="back-button" class="mb-6 inline-flex items-center px-4 py-2 bg-gray-700 hover:bg-red-600 rounded-lg transition-colors">
+                <i data-lucide="arrow-left" class="w-5 h-5 mr-2"></i>
+                Kembali
+            </button>
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <div id="player-container" class="bg-black">
+                     <div id="player-loading" class="flex justify-center items-center h-full">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+                    </div>
+                    <iframe id="video-player" allowfullscreen></iframe>
+                </div>
+                <div class="p-6">
+                    <h2 id="movie-title" class="text-3xl font-bold text-white mb-2"></h2>
+                    <p id="movie-description" class="text-gray-300 mb-4"></p>
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-400">
+                        <span id="movie-uploaded" class="flex items-center"><i data-lucide="calendar" class="w-4 h-4 mr-2"></i></span>
+                        <span id="movie-views" class="flex items-center"><i data-lucide="eye" class="w-4 h-4 mr-2"></i></span>
+                        <span id="movie-length" class="flex items-center"><i data-lucide="clock" class="w-4 h-4 mr-2"></i></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // Konfigurasi dan State Aplikasi
+        const config = {
+            apiKey: '80321gzu2kyp4zle8ktvi',
+            // API Lulustream menggunakan CORS, jadi kita perlu proxy.
+            proxyUrl: 'https://corsproxy.io/?',
+            baseUrl: 'https://lulustream.com/api'
+        };
+
+        const state = {
+            currentPage: 1,
+            totalPages: 1,
+            currentSearchTerm: ''
+        };
+
+        // Elemen DOM
+        const appContainer = document.getElementById('app');
+        const mainView = document.getElementById('main-view');
+        const detailView = document.getElementById('detail-view');
+        const movieGrid = document.getElementById('movie-grid');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('error-message');
+        const errorDetails = document.getElementById('error-details');
+        const searchInput = document.getElementById('search-input');
+        const sectionTitle = document.getElementById('section-title');
+        const paginationContainer = document.getElementById('pagination');
+        const homeButton = document.getElementById('home-button');
+        const backButton = document.getElementById('back-button');
+        
+        // Elemen Modal Peringatan Usia
+        const ageGateModal = document.getElementById('age-gate-modal');
+        const ageGateEnter = document.getElementById('age-gate-enter');
+        const ageGateLeave = document.getElementById('age-gate-leave');
+
+        // Fungsi untuk memulai aplikasi (setelah verifikasi usia)
+        function startApp() {
+            ageGateModal.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            lucide.createIcons(); // Inisialisasi ikon untuk seluruh aplikasi
+            displayMovies();
+        }
+
+
+        // Fungsi untuk Fetch API
+        async function fetchFromApi(endpoint, params = {}) {
+            params.key = config.apiKey;
+            const query = new URLSearchParams(params).toString();
+            const url = `${config.proxyUrl}${encodeURIComponent(`${config.baseUrl}${endpoint}?${query}`)}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status !== 200) {
+                    throw new Error(data.msg || 'API returned an error');
+                }
+                return data.result;
+            } catch (error) {
+                console.error('Fetch API Error:', error);
+                showError(`Tidak dapat terhubung ke server. ${error.message}`);
+                throw error;
+            }
+        }
+
+        // Fungsi untuk menampilkan daftar film
+        async function displayMovies(page = 1, searchTerm = '') {
+            showLoading(true);
+            clearGrid();
+            hideError();
+
+            try {
+                const params = {
+                    per_page: 18,
+                    page: page,
+                };
+                if (searchTerm) {
+                    params.title = searchTerm;
+                    sectionTitle.textContent = `Hasil Pencarian: "${searchTerm}"`;
+                } else {
+                    sectionTitle.textContent = 'Film Terbaru';
+                }
+
+                const data = await fetchFromApi('/file/list', params);
+
+                if (data && data.files && data.files.length > 0) {
+                    data.files.forEach(movie => {
+                        const movieCard = `
+                            <div class="movie-card bg-gray-800 rounded-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300 shadow-lg cursor-pointer" data-filecode="${movie.file_code}">
+                                <div class="relative">
+                                    <img src="${movie.thumbnail}" alt="${movie.title}" class="w-full h-64 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/300x400/111827/FFFFFF?text=No+Image';">
+                                    <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center play-icon">
+                                        <i data-lucide="play-circle" class="w-16 h-16 text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="p-3">
+                                    <h3 class="font-semibold text-white truncate">${movie.title}</h3>
+                                    <p class="text-xs text-gray-400">${new Date(movie.uploaded).getFullYear()}</p>
+                                </div>
+                            </div>
+                        `;
+                        movieGrid.innerHTML += movieCard;
+                    });
+                    lucide.createIcons(); // Re-initialize icons
+                    state.totalPages = data.pages;
+                    state.currentPage = page;
+                    updatePagination();
+                } else {
+                    movieGrid.innerHTML = `<p class="col-span-full text-center text-gray-400">Tidak ada film yang ditemukan.</p>`;
+                    state.totalPages = 1;
+                    state.currentPage = 1;
+                    updatePagination();
+                }
+            } catch (error) {
+                // showError sudah dipanggil di fetchFromApi
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Fungsi untuk menampilkan detail film
+        async function displayMovieDetail(filecode) {
+            showView('detail');
+            const playerLoading = document.getElementById('player-loading');
+            const videoPlayer = document.getElementById('video-player');
+
+            // Reset view
+            document.getElementById('movie-title').textContent = 'Memuat...';
+            document.getElementById('movie-description').textContent = 'Memuat deskripsi...';
+            document.getElementById('movie-uploaded').innerHTML = '';
+            document.getElementById('movie-views').innerHTML = '';
+            document.getElementById('movie-length').innerHTML = '';
+            videoPlayer.src = 'about:blank';
+            playerLoading.style.display = 'flex';
+            
+            try {
+                const data = await fetchFromApi('/file/info', { file_code: filecode });
+                const movie = data[0];
+
+                if (movie) {
+                    document.getElementById('movie-title').textContent = movie.file_title;
+                    document.getElementById('movie-description').textContent = movie.file_descr || `Tonton film ${movie.file_title} dengan kualitas terbaik.`;
+                    const uploadedDate = new Date(movie.file_created);
+                    document.getElementById('movie-uploaded').innerHTML = `<i data-lucide="calendar" class="w-4 h-4 mr-2"></i>Diunggah: ${uploadedDate.toLocaleDateString('id-ID')}`;
+                    document.getElementById('movie-views').innerHTML = `<i data-lucide="eye" class="w-4 h-4 mr-2"></i>Dilihat: ${parseInt(movie.file_views).toLocaleString('id-ID')} kali`;
+                    const lengthInMinutes = Math.round(movie.file_length / 60);
+                    document.getElementById('movie-length').innerHTML = `<i data-lucide="clock" class="w-4 h-4 mr-2"></i>Durasi: ${lengthInMinutes} menit`;
+                    
+                    const embedUrl = `https://lulustream.com/embed/${movie.file_code}.html`;
+                    videoPlayer.src = embedUrl;
+
+                    videoPlayer.onload = () => playerLoading.style.display = 'none';
+                    lucide.createIcons();
+                } else {
+                    showError('Detail film tidak ditemukan.');
+                    showView('main');
+                }
+            } catch (error) {
+                showError('Gagal memuat detail film.');
+                showView('main');
+            }
+        }
+        
+        // Fungsi utilitas UI
+        function showView(viewName) {
+            mainView.classList.toggle('hidden', viewName !== 'main');
+            detailView.classList.toggle('hidden', viewName !== 'detail');
+            if (viewName === 'detail') {
+                window.scrollTo(0, 0);
+            }
+        }
+
+        function showLoading(isLoading) {
+            loading.style.display = isLoading ? 'block' : 'none';
+        }
+
+        function showError(message) {
+            errorMessage.classList.remove('hidden');
+            errorDetails.textContent = message;
+            showLoading(false);
+            clearGrid();
+        }
+
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+
+        function clearGrid() {
+            movieGrid.innerHTML = '';
+        }
+
+        // Paginasi
+        function updatePagination() {
+            paginationContainer.innerHTML = '';
+            if (state.totalPages <= 1) return;
+
+            const createButton = (page, text, disabled = false, active = false) => {
+                const button = document.createElement('button');
+                button.innerHTML = text;
+                button.disabled = disabled;
+                button.className = `px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    disabled ? 'text-gray-500 cursor-not-allowed' :
+                    active ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-red-600 text-gray-200'
+                }`;
+                if (!disabled) {
+                    button.onclick = () => displayMovies(page, state.currentSearchTerm);
+                }
+                return button;
+            };
+
+            paginationContainer.appendChild(createButton(state.currentPage - 1, '«', state.currentPage === 1));
+
+            const maxButtons = 5;
+            let startPage = Math.max(1, state.currentPage - Math.floor(maxButtons / 2));
+            let endPage = Math.min(state.totalPages, startPage + maxButtons - 1);
+            if(endPage - startPage + 1 < maxButtons){
+                startPage = Math.max(1, endPage - maxButtons + 1);
+            }
+
+            if (startPage > 1) {
+                paginationContainer.appendChild(createButton(1, '1'));
+                if (startPage > 2) {
+                   const dots = document.createElement('span');
+                   dots.textContent = '...';
+                   dots.className = 'px-3 py-1 text-gray-400';
+                   paginationContainer.appendChild(dots);
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                paginationContainer.appendChild(createButton(i, i, false, i === state.currentPage));
+            }
+
+            if (endPage < state.totalPages) {
+                if (endPage < state.totalPages - 1) {
+                    const dots = document.createElement('span');
+                   dots.textContent = '...';
+                   dots.className = 'px-3 py-1 text-gray-400';
+                   paginationContainer.appendChild(dots);
+                }
+                paginationContainer.appendChild(createButton(state.totalPages, state.totalPages));
+            }
+
+            paginationContainer.appendChild(createButton(state.currentPage + 1, '»', state.currentPage === state.totalPages));
+        }
+
+        // Event Listeners
+        ageGateEnter.addEventListener('click', () => {
+            localStorage.setItem('isAgeVerified', 'true');
+            startApp();
+        });
+
+        ageGateLeave.addEventListener('click', () => {
+            document.body.innerHTML = '<div class="h-screen w-screen bg-black flex items-center justify-center text-white text-2xl p-8 text-center">Anda harus berusia 18 tahun atau lebih untuk mengakses situs ini.</div>';
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const searchTerm = searchInput.value.trim();
+                state.currentSearchTerm = searchTerm;
+                displayMovies(1, searchTerm);
+            }
+        });
+
+        movieGrid.addEventListener('click', (e) => {
+            const card = e.target.closest('.movie-card');
+            if (card) {
+                const filecode = card.dataset.filecode;
+                displayMovieDetail(filecode);
+            }
+        });
+
+        homeButton.addEventListener('click', () => {
+            searchInput.value = '';
+            state.currentSearchTerm = '';
+            showView('main');
+            displayMovies(1);
+        });
+
+        backButton.addEventListener('click', () => {
+            showView('main');
+            document.getElementById('video-player').src = 'about:blank';
+        });
+
+        // Inisialisasi Aplikasi
+        document.addEventListener('DOMContentLoaded', () => {
+            // Periksa apakah pengguna sudah terverifikasi sebelumnya
+            if (localStorage.getItem('isAgeVerified') === 'true') {
+                startApp();
+            } else {
+                // Jika belum, tampilkan modal peringatan usia
+                ageGateModal.classList.remove('hidden');
+                lucide.createIcons(); // Inisialisasi ikon untuk modal
+            }
+        });
+
+    </script>
+</body>
+</html>
