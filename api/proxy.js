@@ -1,46 +1,39 @@
 // File: /api/proxy.js
 
-export default async function handler(request, response) {
-  // Mengizinkan permintaan dari domain Vercel Anda
-  response.setHeader('Access-Control-Allow-Origin', `https://${request.headers.host}`);
-  response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+try {
+  const apiResponse = await fetch(targetUrl);
+  
+  // 1. Baca respons sebagai TEKS biasa terlebih dahulu, bukan JSON
+  const responseText = await apiResponse.text();
 
-  // Menangani permintaan pre-flight OPTIONS dari browser
-  if (request.method === 'OPTIONS') {
-    return response.status(200).end();
+  // 2. Periksa apakah status HTTP dari server Lulustream adalah error (misal: 404, 502)
+  if (!apiResponse.ok) {
+      console.error(`Lulustream API Error (Status: ${apiResponse.status}):`, responseText);
+      return response.status(apiResponse.status).json({ 
+          msg: `Error dari Lulustream: ${responseText || apiResponse.statusText}`, 
+          status: apiResponse.status 
+      });
   }
 
-  // Ambil endpoint target dan parameter dari query string
-  const { endpoint, ...queryParams } = request.query;
-
-  // Ambil API key rahasia dari Environment Variable di Vercel
-  const apiKey = process.env.LULU_API_KEY;
-
-  if (!apiKey) {
-    return response.status(500).json({ 
-      msg: 'Server Error: API key tidak dikonfigurasi.', 
-      status: 500 
-    });
-  }
-
-  // Tambahkan API key ke parameter yang akan dikirim ke Lulustream
-  queryParams.key = apiKey;
-
-  const luluApiUrl = 'https://lulustream.com/api';
-  const targetUrl = `${luluApiUrl}${endpoint}?${new URLSearchParams(queryParams).toString()}`;
-
+  // 3. Setelah yakin responsnya OK, baru coba parsing sebagai JSON di dalam blok try-catch sendiri
   try {
-    const apiResponse = await fetch(targetUrl);
-    const data = await apiResponse.json();
-
-    // Kirim kembali respons dari Lulustream ke browser
-    response.status(200).json(data);
-  } catch (error) {
-    console.error('Proxy Error:', error);
-    response.status(500).json({ 
-      msg: `Server Proxy Error: ${error.message}`, 
-      status: 500 
-    });
+      const data = JSON.parse(responseText);
+      return response.status(200).json(data);
+  } catch (jsonError) {
+      // 4. Jika parsing gagal, kirim pesan error yang spesifik
+      console.error('Proxy JSON Parse Error:', jsonError);
+      console.error('Response text that failed to parse:', responseText);
+      return response.status(500).json({
+          msg: 'Gagal mem-parsing respons dari server. Server mungkin mengembalikan HTML atau teks biasa.',
+          status: 500
+      });
   }
+
+} catch (error) {
+  // Blok ini sekarang hanya menangani error jaringan (misalnya, tidak bisa terhubung ke server)
+  console.error('Proxy Fetch Error:', error);
+  response.status(500).json({ 
+    msg: `Server Proxy Error: ${error.message}`, 
+    status: 500 
+  });
 }
